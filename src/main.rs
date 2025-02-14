@@ -36,7 +36,7 @@ struct ProxyConfig {
     session_timeout: u64,
     /// How many seconds the program should stay open with no packets received
     /// Set to 0 to keep the program running indefinately
-    #[arg(short = 't', long, default_value_t = 0)]
+    #[arg(short = 'T', long, default_value_t = 0)]
     idle_timeout: u64,
 }
 

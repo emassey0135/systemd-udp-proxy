@@ -34,6 +34,10 @@ struct ProxyConfig {
     /// How many seconds sessions should be cached before expiring
     #[arg(short = 't', long, default_value_t = 60)]
     session_timeout: u64,
+    /// How many seconds the program should stay open with no packets received
+    /// Set to 0 to keep the program running indefinately
+    #[arg(short = 't', long, default_value_t = 0)]
+    idle_timeout: u64,
 }
 
 const MAX_UDP_PACKET_SIZE: u16 = u16::MAX;

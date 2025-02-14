@@ -2,6 +2,7 @@ use std::{
     collections::{hash_map::Entry, HashMap},
     io,
     sync::Arc,
+    time::Duration,
 };
 
 use log::{error, info};
@@ -11,6 +12,7 @@ use tokio::{
         mpsc::{self, UnboundedSender},
         RwLock,
     },
+    time::timeout,
 };
 
 use crate::{
@@ -35,15 +37,20 @@ pub async fn rx_task(
 ) -> io::Result<()> {
     let shared_reply_channel = Arc::new(reply_channel_tx);
     let sessions = Arc::new(RwLock::new(SessionCache::new()));
+    let duration = Duration::from_secs(config.idle_timeout);
 
     loop {
         let mut buf = Vec::with_capacity(MAX_UDP_PACKET_SIZE.into());
-        match rx_socket.recv_buf_from(&mut buf).await {
-            Err(err) => match handle_io_error(err) {
+        match if config.idle_timeout > 0 { timeout(duration, rx_socket.recv_buf_from(&mut buf)).await } else { Ok(rx_socket.recv_buf_from(&mut buf).await) } {
+            Ok(Err(err)) => match handle_io_error(err) {
                 ErrorAction::Terminate(err) => return Err(err),
                 ErrorAction::Continue => continue,
             },
-            Ok((_len, source)) => {
+            Err(_timeout_exceeded) => {
+                info!("Closing rx packet handler");
+                return Ok(());
+            },
+            Ok(Ok((_len, source))) => {
                 let mut session_cache = sessions.write().await;
                 let session_channel_tx = match session_cache.entry(source.into()) {
                     Entry::Vacant(entry) => {

@@ -34,6 +34,10 @@ struct ProxyConfig {
     /// How many seconds sessions should be cached before expiring
     #[arg(short = 't', long, default_value_t = 60)]
     session_timeout: u64,
+    /// How many seconds the program should stay open with no packets received
+    /// Set to 0 to keep the program running indefinately
+    #[arg(short = 't', long, default_value_t = 0)]
+    idle_timeout: u64,
 }
 
 const MAX_UDP_PACKET_SIZE: u16 = u16::MAX;
@@ -69,8 +73,9 @@ async fn main() -> io::Result<()> {
     let source_socket = Arc::new(UdpSocket::from_std(std_source_socket)?);
     let (reply_channel_tx, reply_channel_rx) = mpsc::unbounded_channel::<SessionReply>();
 
+    let idle_timeout = config.idle_timeout;
     let rx_task = tokio::spawn(rx_task(config, reply_channel_tx, source_socket.clone()));
-    let tx_task = tokio::spawn(tx_task(reply_channel_rx, source_socket.clone()));
+    let tx_task = tokio::spawn(tx_task(idle_timeout, reply_channel_rx, source_socket.clone()));
 
     rx_task.await??;
     tx_task.await??;
